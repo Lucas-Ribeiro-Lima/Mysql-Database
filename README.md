@@ -3,7 +3,7 @@ Mysql learning SQL coding and modeling a database
 
 ##Diagrama de Entidade Relacionamento
 
-DER (/Imagens/Biblioteca1)
+[DER] (/Imagens/Biblioteca1)
 
 ##Criação das tabelas
 ```sql
