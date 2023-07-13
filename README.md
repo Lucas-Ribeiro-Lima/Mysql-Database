@@ -122,15 +122,6 @@ CREATE TABLE livro_emprestimo(
 
 ## Função para insert de pessoa
 ```sql
-CREATE TABLE pessoa(
-	id_pessoa int auto_increment,
-	nome varchar(50) not null,
-	sobrenome varchar(50),
-	cpf char(14) not null,
-	flg_status_pessoa int default 0,
-	primary key (id_pessoa)
-);
-
 CREATE FUNCTION add_pessoa
 	(nome varchar (50),
 	 cpf char (11),
