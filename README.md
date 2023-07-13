@@ -124,17 +124,33 @@ CREATE TABLE livro_emprestimo(
 ```sql
 CREATE FUNCTION add_pessoa
 	(nome varchar (50),
-	 cpf char (11),
+	 sobrenome varchar(50),
+	 cpf char (14),
 	 email varchar (255))
 RETURNS varchar(50) DETERMINISTIC
 BEGIN
 	DECLARE cpf_formatado char(14);
-	SET cpf_formatado = format_cpf(cpf);
-	INSERT INTO 
-		pessoa (nome, email, CPF) 
-	VALUES 
-		(nome, email, cpf_formatado);
-	RETURN ('Pessoa Incluida');
+	DECLARE custom_exception CONDITION FOR SQLSTATE '45000';
+	DECLARE EXIT HANDLER FOR custom_exception
+	    BEGIN
+	        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'CPF deve ter tamanho 11 ou 14';
+	    END;
+	IF length(cpf) = 11 THEN
+			SET cpf_formatado = format_cpf(cpf);
+			INSERT INTO 
+			pessoa (nome, sobrenome, email, CPF)
+			VALUES 
+			(nome, sobrenome, email, cpf_formatado);
+			RETURN ('Pessoa Incluida');
+	ELSEIF length(cpf) = 14 THEN
+		INSERT INTO 
+			pessoa (nome, sobrenome, email, CPF) 
+		VALUES 
+			(nome, sobrenome, email, cpf);
+		RETURN ('Pessoa Incluida');
+	ELSE
+		RESIGNAL custom_exception;
+	END IF;
 END;
 
 CREATE FUNCTION format_cpf
