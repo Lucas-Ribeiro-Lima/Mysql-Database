@@ -1,11 +1,11 @@
 # Mysql-Database
 Mysql learning SQL coding and modeling a database
 
-##Diagrama de Entidade Relacionamento
+## Diagrama de Entidade Relacionamento
 
-[DER](/Imagens/Biblioteca1)
+![alt text](/Imagens/Biblioteca1.png)
 
-##Criação das tabelas
+## Criação das tabelas
 ```sql
 CREATE TABLE pessoa(
 	id_pessoa int AUTO_INCREMENT,
