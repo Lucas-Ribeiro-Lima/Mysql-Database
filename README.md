@@ -124,49 +124,166 @@ CREATE TABLE livro_emprestimo(
 
 ## Função para insert de pessoa
 ```sql
-CREATE FUNCTION add_pessoa
+CREATE PROCEDURE add_pessoa
 	(nome varchar (50),
 	 sobrenome varchar(50),
 	 cpf char (14),
 	 email varchar (255))
-RETURNS varchar(50) DETERMINISTIC
+BEGIN
+	DECLARE cpf_formatado char(14);
+	cpf_formatado = format_cpf(cpf);
+	INSERT INTO 
+		pessoa (nome, sobrenome, email, CPF)
+	VALUES 
+		(nome, sobrenome, email, cpf_formatado);	
+END;
+
+CREATE FUNCTION format_cpf
+	(cpf CHAR(14))
+RETURNS VARCHAR(14) DETERMINISTIC
 BEGIN
 	DECLARE cpf_formatado char(14);
 	DECLARE custom_exception CONDITION FOR SQLSTATE '45000';
 	DECLARE EXIT HANDLER FOR custom_exception
-	    BEGIN
-	        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'CPF deve ter tamanho 11 ou 14';
-	    END;
+	BEGIN
+		SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'CPF deve ter tamanho 11 ou 14';
+	END;
 	IF length(cpf) = 11 THEN
-			SET cpf_formatado = format_cpf(cpf);
-			INSERT INTO 
-			pessoa (nome, sobrenome, email, CPF)
-			VALUES 
-			(nome, sobrenome, email, cpf_formatado);
-			RETURN ('Pessoa Incluida');
-	ELSEIF length(cpf) = 14 THEN
-		INSERT INTO 
-			pessoa (nome, sobrenome, email, CPF) 
-		VALUES 
-			(nome, sobrenome, email, cpf);
-		RETURN ('Pessoa Incluida');
-	ELSE
-		RESIGNAL custom_exception;
-	END IF;
-END;
-
-CREATE FUNCTION format_cpf
-	(cpf CHAR(11))
-RETURNS VARCHAR(14) DETERMINISTIC
-BEGIN
-	DECLARE cpf_formatado char(14);
-	SET cpf_formatado = 
+		SET cpf_formatado = 
 		CONCAT(
 			SUBSTR(cpf, 1,3), '.', 
 			SUBSTR(cpf, 4,3), '.', 
 			SUBSTR(cpf, 7,3), '-', 
 			SUBSTR(cpf, 10,2)
 		);
-	RETURN (cpf_formatado);
+		RETURN (cpf_formatado);
+	ELSEIF length(cpf) = 14 THEN
+		RETURN (cpf);
+	ELSE
+		RESIGNAL custom_exception;
+	END IF;
 END;
+
+CREATE PROCEDURE read_pessoa ()
+BEGIN
+	SELECT 
+		p.id_pessoa,
+		concat(nome, ' ', sobrenome) nome_completo,
+		cpf,
+		email,
+		e.logradouro,
+		e.cep
+	FROM pessoa p
+		LEFT JOIN pessoa_endereco pe ON p.id_pessoa = pe.id_pessoa
+		LEFT JOIN endereco e ON pe.id_endereco = e.id_endereco;
+END;
+
+CREATE PROCEDURE update_pessoa (
+	 IN v_id int,
+	 IN v_nome varchar(50),
+	 IN v_sobrenome varchar(50),
+	 IN v_cpf varchar(14),
+	 IN v_flg_status int,
+	 IN v_email varchar(255))
+BEGIN
+	IF v_nome IS NOT NULL THEN
+		UPDATE pessoa SET nome = v_nome
+		WHERE id_pessoa = v_id;
+	END IF;
+	IF v_sobrenome IS NOT NULL THEN
+		UPDATE pessoa set sobrenome = v_sobrenome
+		WHERE id_pessoa = v_id;
+	END IF;
+	IF v_cpf IS NOT NULL THEN
+		UPDATE pessoa set cpf = format_cpf(v_cpf)
+		WHERE id_pessoa = v_id;
+	END IF;
+	IF v_flg_status IS NOT NULL THEN
+		UPDATE pessoa set flg_status_pessoa = v_flg_status
+		WHERE id_pessoa = v_id;
+	END IF;
+	IF v_email IS NOT NULL THEN
+		UPDATE pessoa set email = v_email
+		WHERE id_pessoa = v_id;
+	END IF;
+END;
+
+CREATE PROCEDURE delete_pessoa (
+	IN v_id int)
+BEGIN
+	DELETE FROM pessoa_endereco WHERE id_pessoa = v_id;
+	DELETE FROM pessoa WHERE id_pessoa = v_id;
+END;
+
+CREATE PROCEDURE read_endereco(
+	IN v_cep varchar(20)
+)
+BEGIN
+	SELECT 
+		id_endereco,
+		logradouro,
+		cep,
+		cidade.nome,
+		estado.nome,
+		estado.uf
+	FROM endereco
+		JOIN cidade ON endereco.id_cidade = cidade.id_cidade
+		JOIN estado ON cidade.id_estado = estado.id_estado
+	WHERE
+		endereco.cep = v_cep;
+END;
+
+CREATE PROCEDURE insert_endereco (
+	v_logradouro varchar(255),
+	v_cep varchar(20),
+	v_id_cidade int
+)
+BEGIN 
+	DECLARE v_aux int;
+	SELECT count(id_endereco) INTO v_aux FROM endereco WHERE cep = v_cep;
+	IF v_aux = 0 THEN
+		INSERT INTO 
+			endereco (logradouro, cep, id_cidade)
+		VALUES
+			(v_logradouro, v_cep, v_id_cidade);
+	ELSE
+		SIGNAL SQLSTATE '45000' set MESSAGE_TEXT = 'Endereço já existente';
+	END IF;
+END;
+
+CREATE PROCEDURE update_endereco_pessoa ( 
+	v_id_pessoa int,
+	v_cep varchar(20),
+	v_numero int,
+	v_complemento varchar(55)
+)
+BEGIN
+	DECLARE v_aux int;
+	SELECT id_endereco INTO v_aux FROM endereco WHERE cep = v_cep;
+	IF v_aux IS NOT NULL THEN
+		UPDATE pessoa SET
+			numero_endereco = v_numero,
+			complemento = v_complemento
+		WHERE
+			id_pessoa = v_id_pessoa;
+		INSERT INTO
+			pessoa_endereco (id_pessoa, id_endereco)
+		VALUES
+			(v_id_pessoa, v_aux);
+	ELSE
+		SIGNAL SQLSTATE '44000' set MESSAGE_TEXT = 'Endereço não cadastrado';
+	END IF;
+END;
+
+-- Chamada das Procedure
+CALL read_pessoa();
+CALL add_pessoa(:nome, :sobrenome, :cpf, :email); 
+CALL update_pessoa(:v_id, :v_nome, :v_sobrenome, :v_cpf, :v_flg_status, :v_email);
+CALL delete_pessoa(:v_id); 
+
+CALL read_endereco(:v_cep); 
+CALL insert_endereco(:v_logradouro, :v_cep, :v_id_cidade); 
+
+CALL update_endereco_pessoa(:v_id_pessoa, :v_cep, :v_numero, :v_complemento); 
+
 ```
