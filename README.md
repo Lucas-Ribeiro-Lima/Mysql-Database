@@ -184,8 +184,12 @@ CREATE PROCEDURE update_pessoa (
 	 IN v_sobrenome varchar(50),
 	 IN v_cpf varchar(14),
 	 IN v_flg_status int,
-	 IN v_email varchar(255))
+	 IN v_email varchar(255),
+	 IN	v_cep varchar(20),
+	 IN	v_numero int,
+	 IN	v_complemento varchar(55))
 BEGIN
+	DECLARE v_aux int;
 	IF v_nome IS NOT NULL THEN
 		UPDATE pessoa SET nome = v_nome
 		WHERE id_pessoa = v_id;
@@ -205,6 +209,22 @@ BEGIN
 	IF v_email IS NOT NULL THEN
 		UPDATE pessoa set email = v_email
 		WHERE id_pessoa = v_id;
+	END IF;
+	IF  v_cep IS NOT NULL THEN
+		SELECT id_endereco INTO v_aux FROM endereco WHERE cep = v_cep;
+		IF v_aux IS NOT NULL THEN
+		UPDATE pessoa SET
+			numero_endereco = v_numero,
+			complemento = v_complemento
+		WHERE
+			id_pessoa = v_id;
+		INSERT INTO
+			pessoa_endereco (id_pessoa, id_endereco)
+		VALUES
+			(v_id, v_aux);
+		ELSE
+		SIGNAL SQLSTATE '44000' set MESSAGE_TEXT = 'Endereço não cadastrado';
+		END IF;
 	END IF;
 END;
 
@@ -251,39 +271,12 @@ BEGIN
 	END IF;
 END;
 
-CREATE PROCEDURE update_endereco_pessoa ( 
-	v_id_pessoa int,
-	v_cep varchar(20),
-	v_numero int,
-	v_complemento varchar(55)
-)
-BEGIN
-	DECLARE v_aux int;
-	SELECT id_endereco INTO v_aux FROM endereco WHERE cep = v_cep;
-	IF v_aux IS NOT NULL THEN
-		UPDATE pessoa SET
-			numero_endereco = v_numero,
-			complemento = v_complemento
-		WHERE
-			id_pessoa = v_id_pessoa;
-		INSERT INTO
-			pessoa_endereco (id_pessoa, id_endereco)
-		VALUES
-			(v_id_pessoa, v_aux);
-	ELSE
-		SIGNAL SQLSTATE '44000' set MESSAGE_TEXT = 'Endereço não cadastrado';
-	END IF;
-END;
-
 -- Chamada das Procedure
 CALL read_pessoa();
 CALL add_pessoa(:nome, :sobrenome, :cpf, :email); 
-CALL update_pessoa(:v_id, :v_nome, :v_sobrenome, :v_cpf, :v_flg_status, :v_email);
+CALL update_pessoa(:v_id, :v_nome, :v_sobrenome, :v_cpf, :v_flg_status, :v_email, :v_cep, :v_numero, :v_complemento); 
 CALL delete_pessoa(:v_id); 
 
 CALL read_endereco(:v_cep); 
 CALL insert_endereco(:v_logradouro, :v_cep, :v_id_cidade); 
-
-CALL update_endereco_pessoa(:v_id_pessoa, :v_cep, :v_numero, :v_complemento); 
-
 ```
